@@ -4,8 +4,9 @@ LDFLAGS := #-lrt -pthread
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:%.c=bin/%.o)
 TARGET := proj2
+FUNCS := all clean run-not-clean run test zip
 
-.PHONY: all clean run zip test run-clean
+.PHONY: $(FUNCS)
 
 all: $(TARGET)
 
@@ -23,18 +24,22 @@ clean:
 	rm -rf proj2 bin *.zip *.out
 
 FLAGS_1 := -h
+FLAGS_2 := a b c d e
+FLAGS_3 := -1 -1 -1 -1 -1
+FLAGS = $(FLAGS_3)
 
 # run (make run)
-run: all
-	./$(TARGET) $(FLAGS_1)
+run-not-clean: all
+	@echo ; echo Running file "\""$(TARGET)"\"" with: $(FLAGS) ; echo
+	@./$(TARGET) $(FLAGS)
 	@echo
 
 # run (make run clean)
-run-clean: run
+run: run-not-clean
 	$(MAKE) clean
 
 # provided test
-test: run
+test: run-not-clean
 	@bash extras/kontrola-vystupu.sh < proj2.out
 	$(MAKE) clean
 
