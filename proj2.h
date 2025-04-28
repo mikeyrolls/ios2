@@ -1,4 +1,16 @@
+/*
+ * Author:  me
+ * Date:    28.4.2025
+ */
 
+#ifndef PROJ2_H
+#define PROJ2_H
+
+/**
+ * @brief prints program usage to error output
+ * 
+ */
+void help();
 
 /**
  * @brief converts a string to integer in a range from min to max
@@ -12,11 +24,12 @@
  */
 int toInt(char strToInt[], int min, int max, char name[]);
 
-/**
- * @brief prints program usage to error output
- * 
- */
-void help();
+
+void ferry();
+
+void car();
+
+void truck();
 
 /**
  * @brief main body of the program
@@ -26,3 +39,5 @@ void help();
  * 
  */
 int main(int argc, char* argv[]);
+
+#endif

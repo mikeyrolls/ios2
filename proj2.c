@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include <unistd.h>
+#include <sys/mman.h>
+#include <semaphore.h>
+#include <time.h>
+
 void help() {
     fprintf(stderr, "\nCorrect usage:\t./proj2 N O K TA TP\n");
     fprintf(stderr, "\tN:  Number of trucks, N < 10000\n");
@@ -29,6 +34,21 @@ int toInt(char strToInt[], int min, int max, char name[]) {
     return (int)num;
 }
 
+void ferry() {
+    printf("ferry meow\n");
+    exit(0);
+}
+
+void car() {
+    printf("car meow\n");
+    exit(0);
+}
+
+void truck() {
+    printf("truck meow\n");
+    exit(0);
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 6) {
         fprintf(stderr, "Error: Incorrect argument count %d\n", argc);
@@ -36,8 +56,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int trucks = toInt(argv[1], 1, 10000, "trucks");
-    int cars = toInt(argv[2], 1, 10000, "cars");
+    int trucks = toInt(argv[1], 0, 10000, "trucks");
+    int cars = toInt(argv[2], 0, 10000, "cars");
     int capacity = toInt(argv[3], 3, 100, "ferry capacity");
     int carTime = toInt(argv[4], 0, 10000, "car travel time");
     int boatTime = toInt(argv[5], 0, 1000, "ferry travel time");
@@ -47,8 +67,27 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    
-    //setup ready woo
+    pid_t pid = fork();
+    if (pid == 0) {
+        ferry();
+    }
+    for (int o = 0; o < cars; o++) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            car();
+        }
+    }
+    for (int n = 0; n < trucks; n++) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            truck();
+        }
+    }
+
+
+    //check which process
+
+    //main wait for end
 
     return 0;
 }
