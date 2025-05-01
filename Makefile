@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -std=gnu99 -Wall -Wextra -Werror -pedantic
+CFLAGS := -std=gnu99 -Wall -Wextra -Werror -pedantic -g
 LDFLAGS := #-lrt -pthread
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:%.c=bin/%.o)
@@ -26,7 +26,7 @@ clean:
 FLAGS_1 := -h
 FLAGS_2 := a b c d e
 FLAGS_3 := -1 -1 -1 -1 -1
-FLAGS_4 := 4 4 10 10 10
+FLAGS_4 := 0 10 10 10 10
 FLAGS = $(FLAGS_4)
 
 # run (make run)
@@ -37,6 +37,8 @@ run-not-clean: all
 
 # run (make run clean)
 run: run-not-clean
+	@echo printing proj2.out ; echo
+	@cat proj2.out ; echo
 	$(MAKE) clean
 
 # provided test

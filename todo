@@ -1,7 +1,9 @@
 comment code
-create a file to write into 
 main process wait for all to end, free shared
-create shared
+mutexes
+
+
+function vehicle with enum car/truck?
 
 
 add name

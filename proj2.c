@@ -1,11 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include "proj2.h"
 
-#include <unistd.h>
-#include <sys/mman.h>
-#include <semaphore.h>
-#include <time.h>
+sharedData *shared;
+infoData *inf;
+FILE *filePtr;
 
 void help() {
     fprintf(stderr, "\nCorrect usage:\t./proj2 N O K TA TP\n");
@@ -34,18 +31,66 @@ int toInt(char strToInt[], int min, int max, char name[]) {
     return (int)num;
 }
 
+void sharedSetup() {
+    shared = mmap(NULL, sizeof(sharedData), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (shared == MAP_FAILED) {
+        fprintf(stderr, "mmap failed\n");
+        exit(1);
+    }
+
+    sem_init(&shared->mutex, 1, 1);
+    sem_init(&shared->semPort0Car, 1, 0);
+    sem_init(&shared->semPort0Truck, 1, 0);
+    sem_init(&shared->semPort1Car, 1, 0);
+    sem_init(&shared->semPort1Truck, 1, 0);
+    shared->currCap = 0;
+}
+
+void sharedDelete() {
+    munmap(shared, sizeof(sharedData));
+    sem_destroy(&shared->mutex);
+    sem_destroy(&shared->semPort0Car);
+    sem_destroy(&shared->semPort0Truck);
+    sem_destroy(&shared->semPort1Car);
+    sem_destroy(&shared->semPort1Truck);
+}
+
+void cleanupExtras() {
+    free(inf);
+    fclose(filePtr);
+}
+
+void saveLine(const char line[], ...) {
+    va_list args;
+    va_start(args, line);
+
+    //write into file
+    sem_wait(&shared->mutex);
+    shared->actionVal++;
+    // fprintf(filePtr, "%d: ", shared->actionVal);
+    vfprintf(filePtr, line, args);
+    sem_post(&shared->mutex);
+
+    va_end(args);
+}   
+
 void ferry() {
-    printf("ferry meow\n");
+    saveLine("ferry meow\n");
+    cleanupExtras();
     exit(0);
 }
 
 void car() {
-    printf("car meow\n");
+    srand(time(NULL) * getpid());
+    int port = rand() % 2;
+    saveLine("car meow at %d\n", port);
+    cleanupExtras();
     exit(0);
 }
 
 void truck() {
-    printf("truck meow\n");
+    printf("truck imploded catastrophically\n");
+    cleanupExtras();
     exit(0);
 }
 
@@ -56,14 +101,32 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    inf = malloc(sizeof(infoData));
+    if (inf == NULL) {
+        fprintf(stderr, "Error: Malloc failed\n");
+        return 1;
+    }
+
     int trucks = toInt(argv[1], 0, 10000, "trucks");
     int cars = toInt(argv[2], 0, 10000, "cars");
-    int capacity = toInt(argv[3], 3, 100, "ferry capacity");
-    int carTime = toInt(argv[4], 0, 10000, "car travel time");
-    int boatTime = toInt(argv[5], 0, 1000, "ferry travel time");
+    inf->capacity = toInt(argv[3], 3, 100, "ferry capacity");
+    inf->carTime = toInt(argv[4], 0, 10000, "car travel time");
+    inf->boatTime = toInt(argv[5], 0, 1000, "ferry travel time");
 
-    if (trucks == -1 || cars == -1 || capacity == -1 || carTime == -1 || boatTime == -1) {
+    if (trucks == -1 || cars == -1 || inf->capacity == -1 || inf->carTime == -1 || inf->boatTime == -1) {
         help();
+        free(inf);
+        return 1;
+    }
+
+    sharedSetup();
+
+    filePtr = fopen("proj2.out", "w");
+    
+    if (filePtr == NULL) {
+        fprintf(stderr, "Error creating file!\n");
+        free(inf);
+        sharedDelete();
         return 1;
     }
 
@@ -84,10 +147,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    while(wait(NULL) > 0);
 
-    //check which process
-
-    //main wait for end
+    cleanupExtras();
+    sharedDelete();
 
     return 0;
 }
+

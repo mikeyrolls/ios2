@@ -6,6 +6,37 @@
 #ifndef PROJ2_H
 #define PROJ2_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <semaphore.h>
+#include <time.h>
+#include <stdarg.h>
+#include <sys/wait.h>
+
+typedef struct {
+    sem_t mutex;
+    //sem_t semFerry;
+    sem_t semPort0Car;
+    sem_t semPort0Truck;
+    sem_t semPort1Car;
+    sem_t semPort1Truck;
+    int currCap;
+    int actionVal;
+    int waitPort0Car;
+    int waitPort0Truck;
+    int waitPort1Car;
+    int waitPort1Truck;
+} sharedData;
+
+typedef struct {
+    int capacity;
+    int carTime;
+    int boatTime;
+} infoData;
+
 /**
  * @brief prints program usage to error output
  * 
@@ -24,6 +55,7 @@ void help();
  */
 int toInt(char strToInt[], int min, int max, char name[]);
 
+void sharedSetup();
 
 void ferry();
 
