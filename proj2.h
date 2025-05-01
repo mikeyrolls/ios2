@@ -18,24 +18,23 @@
 
 typedef struct {
     sem_t mutex;
-    //sem_t semFerry;
-    sem_t semPort0Car;
-    sem_t semPort0Truck;
-    sem_t semPort1Car;
-    sem_t semPort1Truck;
+    sem_t write;
+    sem_t semVeh[2][2];   // car/truck   port0/1
+    sem_t semFerry;
     int currCap;
     int actionVal;
-    int waitPort0Car;
-    int waitPort0Truck;
-    int waitPort1Car;
-    int waitPort1Truck;
+    int waitVeh[2][2];
+    int vehLeft;
+    int vehBoarded;
 } sharedData;
 
 typedef struct {
-    int capacity;
-    int carTime;
-    int boatTime;
+    int maxCap;
+    int vehTime;
+    int ferryTime;
 } infoData;
+
+enum vehType{ CAR, TRUCK };
 
 /**
  * @brief prints program usage to error output
@@ -59,7 +58,7 @@ void sharedSetup();
 
 void ferry();
 
-void car();
+void vehicle(int vehNum, enum vehType type);
 
 void truck();
 

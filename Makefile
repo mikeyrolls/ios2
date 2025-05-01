@@ -26,7 +26,8 @@ clean:
 FLAGS_1 := -h
 FLAGS_2 := a b c d e
 FLAGS_3 := -1 -1 -1 -1 -1
-FLAGS_4 := 0 10 10 10 10
+
+FLAGS_4 := 0 3 10 10 10
 FLAGS = $(FLAGS_4)
 
 # run (make run)

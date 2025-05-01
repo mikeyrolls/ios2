@@ -37,22 +37,32 @@ void sharedSetup() {
         fprintf(stderr, "mmap failed\n");
         exit(1);
     }
-
     sem_init(&shared->mutex, 1, 1);
-    sem_init(&shared->semPort0Car, 1, 0);
-    sem_init(&shared->semPort0Truck, 1, 0);
-    sem_init(&shared->semPort1Car, 1, 0);
-    sem_init(&shared->semPort1Truck, 1, 0);
-    shared->currCap = 0;
+    sem_init(&shared->write, 1, 1);
+    sem_init(&shared->semFerry, 1, 0);
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            sem_init(&shared->semVeh[i][j], 1, 0);
+        }
+    }
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            shared->waitVeh[i][j] = 0;
+        }
+    }
+    shared->actionVal = 0;
+    shared->vehBoarded = 0;
 }
 
 void sharedDelete() {
     munmap(shared, sizeof(sharedData));
     sem_destroy(&shared->mutex);
-    sem_destroy(&shared->semPort0Car);
-    sem_destroy(&shared->semPort0Truck);
-    sem_destroy(&shared->semPort1Car);
-    sem_destroy(&shared->semPort1Truck);
+    sem_destroy(&shared->write);
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            sem_destroy(&shared->semVeh[i][j]);
+        }
+    }
 }
 
 void cleanupExtras() {
@@ -65,25 +75,77 @@ void saveLine(const char line[], ...) {
     va_start(args, line);
 
     //write into file
-    sem_wait(&shared->mutex);
+    sem_wait(&shared->write);
+
     shared->actionVal++;
-    // fprintf(filePtr, "%d: ", shared->actionVal);
-    vfprintf(filePtr, line, args);
-    sem_post(&shared->mutex);
+    fprintf(filePtr, "%d: ", shared->actionVal);    // action number
+    vfprintf(filePtr, line, args);                  // message
+    fprintf(filePtr, "\n");                         // new line
+
+    sem_post(&shared->write);
 
     va_end(args);
 }   
 
-void ferry() {
-    saveLine("ferry meow\n");
+void ferry() {  // handles capacity
+    saveLine("P: started");
+    int port = 0;
+    srand(time(NULL) * getpid());
+
+    while(0) { // total vehicles or capacity
+        usleep(rand() % (inf->ferryTime + 1));
+        saveLine("P: arrived to %d", port);
+
+        // let cars out
+
+        // let cars in
+
+        saveLine("P: leaving %d", port);
+
+
+        port = (port + 1) % 2;
+    }
+
+    usleep(rand() % (inf->ferryTime + 1));
+    saveLine("P: finished");
+
+    //freeing copied memory
     cleanupExtras();
     exit(0);
 }
 
-void car() {
+// ********************************************************************************************************
+
+void vehicle(int vehNum, enum vehType type) {
     srand(time(NULL) * getpid());
     int port = rand() % 2;
-    saveLine("car meow at %d\n", port);
+    char vehName = (type == CAR) ? 'O' : 'N' ;
+
+    // starting and arriving to a picked port
+    saveLine("%c %d: started", vehName, vehNum);
+    usleep(rand() % (inf->vehTime + 1));
+    saveLine("%c %d: arrived to %d", vehName, vehNum);
+
+    // arrived to port, waiting
+    sem_wait(&shared->mutex);
+    shared->waitVeh[type][port]++;
+    sem_post(&shared->mutex);
+
+    sem_wait(&shared->semVeh[type][port]);      // ferry post
+
+    //boarding, leaving the port
+    sem_wait(&shared->mutex);
+    shared->waitVeh[type][port]--;
+    shared->vehLeft--;
+    sem_post(&shared->mutex);
+
+    saveLine("%c %d: boarding", vehName, vehNum);
+
+    sem_wait(&shared->semFerry);                // ferry post
+
+    saveLine("%c %d: leaving in %d", vehName, vehNum, (port + 1) % 2);
+
+    // freeing copied memory
     cleanupExtras();
     exit(0);
 }
@@ -101,6 +163,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // helper structure
     inf = malloc(sizeof(infoData));
     if (inf == NULL) {
         fprintf(stderr, "Error: Malloc failed\n");
@@ -109,18 +172,23 @@ int main(int argc, char* argv[]) {
 
     int trucks = toInt(argv[1], 0, 10000, "trucks");
     int cars = toInt(argv[2], 0, 10000, "cars");
-    inf->capacity = toInt(argv[3], 3, 100, "ferry capacity");
-    inf->carTime = toInt(argv[4], 0, 10000, "car travel time");
-    inf->boatTime = toInt(argv[5], 0, 1000, "ferry travel time");
+    inf->maxCap = toInt(argv[3], 3, 100, "ferry capacity");
+    inf->vehTime = toInt(argv[4], 0, 10000, "car travel time");
+    inf->ferryTime = toInt(argv[5], 0, 1000, "ferry travel time");
+    shared->vehLeft = trucks + cars;
+    shared->currCap = inf->maxCap;
 
-    if (trucks == -1 || cars == -1 || inf->capacity == -1 || inf->carTime == -1 || inf->boatTime == -1) {
+    // checking for errors
+    if (trucks == -1 || cars == -1 || inf->maxCap == -1 || inf->vehTime == -1 || inf->ferryTime == -1) {
         help();
         free(inf);
         return 1;
     }
 
+    // semaphore setup
     sharedSetup();
 
+    // file opening
     filePtr = fopen("proj2.out", "w");
     
     if (filePtr == NULL) {
@@ -130,6 +198,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    setbuf(filePtr, NULL);
+    setbuf(stderr, NULL);
+
+    // creating children
     pid_t pid = fork();
     if (pid == 0) {
         ferry();
@@ -137,18 +209,20 @@ int main(int argc, char* argv[]) {
     for (int o = 0; o < cars; o++) {
         pid_t pid = fork();
         if (pid == 0) {
-            car();
+            vehicle(o+1, CAR);
         }
     }
     for (int n = 0; n < trucks; n++) {
         pid_t pid = fork();
         if (pid == 0) {
-            truck();
+            vehicle(n+1, TRUCK);
         }
     }
 
+    // waiting for children
     while(wait(NULL) > 0);
 
+    // allocated files and shared mem freeing
     cleanupExtras();
     sharedDelete();
 
