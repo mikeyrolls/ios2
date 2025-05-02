@@ -27,7 +27,7 @@ FLAGS_1 := -h
 FLAGS_2 := a b c d e
 FLAGS_3 := -1 -1 -1 -1 -1
 FLAGS_4 := 0 3 10 10 10
-FLAGS_5 := 30 20 30 10 50
+FLAGS_5 := 3 3 30 20 10
 
 FLAGS = $(FLAGS_5)
 

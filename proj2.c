@@ -98,7 +98,7 @@ void ferry() {  // handles capacity
     int currCap = 0;
     int vehBoarded = 0;
 
-    while(shared->vehLeft > 0 || vehBoarded) { // total vehicles or capacity
+    while(shared->vehLeft > 0) { // total vehicles or capacity
         usleep(rand() % (inf->ferryTime + 1));
         saveLine("P: arrived to %d", port);
 
@@ -156,7 +156,7 @@ void ferry() {  // handles capacity
     }
 
     usleep(rand() % (inf->ferryTime + 1));
-    saveLine("P: finish         ");
+    saveLine("P: finish");
 
     //freeing copied memory
     cleanupExtras();
@@ -183,11 +183,6 @@ void vehicle(int vehNum, enum vehType type) {
     sem_wait(&shared->semVeh[type][port]);      // ferry post
 
     //boarding, leaving the port
-    sem_wait(&shared->mutex);
-    //shared->waitVeh[type][port]--;    ferry does?
-    shared->vehLeft--;
-    sem_post(&shared->mutex);
-
     saveLine("%c %d: boarding", vehName, vehNum);
     sem_post(&shared->boardingDone);
 
@@ -196,6 +191,10 @@ void vehicle(int vehNum, enum vehType type) {
     sem_wait(&shared->semFerry);                // ferry post
 
     saveLine("%c %d: leaving in %d", vehName, vehNum, (port + 1) % 2);
+
+    sem_wait(&shared->mutex);
+    shared->vehLeft--;
+    sem_post(&shared->mutex);
 
     // freeing copied memory
     cleanupExtras();
