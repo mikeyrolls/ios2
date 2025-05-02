@@ -11,6 +11,8 @@
 - semaphores (pdf with requirements in `extras/`)
 - `.c` and header files in root dir, `Makefile` mandatory
 
+Ferry moving cars and trucks between 2 ports, details in pdf
+
 ## Executable
 
 - build with make
