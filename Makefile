@@ -1,6 +1,6 @@
 CC := gcc
 CFLAGS := -std=gnu99 -Wall -Wextra -Werror -pedantic -g
-LDFLAGS := #-lrt -pthread
+LDFLAGS := -lrt -pthread
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:%.c=bin/%.o)
 TARGET := proj2
@@ -23,18 +23,13 @@ bin:
 clean:
 	rm -rf proj2 bin *.zip *.out
 
-FLAGS_1 := -h
-FLAGS_2 := a b c d e
-FLAGS_3 := -1 -1 -1 -1 -1
-FLAGS_4 := 0 3 10 10 10
-FLAGS_5 := 3 3 30 20 10
 
-FLAGS = $(FLAGS_5)
+PROG_ARGS = 3 3 30 20 10
 
 # run (make run)
 run-not-clean: all
-	@echo ; echo Running file "\""$(TARGET)"\"" with: $(FLAGS) ; echo
-	@./$(TARGET) $(FLAGS)
+	@echo ; echo Running file "\""$(TARGET)"\"" with: $(PROG_ARGS) ; echo
+	@./$(TARGET) $(PROG_ARGS)
 	@echo
 
 # run (make run clean)
