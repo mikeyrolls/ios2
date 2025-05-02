@@ -26,9 +26,10 @@ clean:
 FLAGS_1 := -h
 FLAGS_2 := a b c d e
 FLAGS_3 := -1 -1 -1 -1 -1
-
 FLAGS_4 := 0 3 10 10 10
-FLAGS = $(FLAGS_4)
+FLAGS_5 := 30 20 30 10 50
+
+FLAGS = $(FLAGS_5)
 
 # run (make run)
 run-not-clean: all
@@ -44,7 +45,7 @@ run: run-not-clean
 
 # provided test
 test: run-not-clean
-	@bash extras/kontrola-vystupu.sh < proj2.out
+	@bash extras/kontrola-vystupu.sh < proj2.out ; echo
 	$(MAKE) clean
 
 # zip

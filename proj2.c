@@ -40,6 +40,7 @@ void sharedSetup() {
     sem_init(&shared->mutex, 1, 1);
     sem_init(&shared->write, 1, 1);
     sem_init(&shared->semFerry, 1, 0);
+    sem_init(&shared->boardingDone, 1, 0);
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
             sem_init(&shared->semVeh[i][j], 1, 0);
@@ -51,13 +52,15 @@ void sharedSetup() {
         }
     }
     shared->actionVal = 0;
-    shared->vehBoarded = 0;
+    
 }
 
 void sharedDelete() {
     munmap(shared, sizeof(sharedData));
     sem_destroy(&shared->mutex);
     sem_destroy(&shared->write);
+    sem_destroy(&shared->semFerry);
+    sem_destroy(&shared->boardingDone);
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
             sem_destroy(&shared->semVeh[i][j]);
@@ -92,22 +95,68 @@ void ferry() {  // handles capacity
     int port = 0;
     srand(time(NULL) * getpid());
 
-    while(0) { // total vehicles or capacity
+    int currCap = 0;
+    int vehBoarded = 0;
+
+    while(shared->vehLeft > 0 || vehBoarded) { // total vehicles or capacity
         usleep(rand() % (inf->ferryTime + 1));
         saveLine("P: arrived to %d", port);
 
         // let cars out
+        for(int i = 0; i < vehBoarded; i++) {
+            sem_post(&shared->semFerry);
+        }
+        vehBoarded = 0;
+        currCap = inf->maxCap;
 
         // let cars in
+        enum vehType boardingVeh = TRUCK;
+        int vehSize;
+        while (currCap > 0) {
+            vehSize = (boardingVeh == CAR) ? 1 : 3;
+
+            // leaving, car will wait if arriving too late
+            if(shared->waitVeh[CAR][port] + shared->waitVeh[TRUCK][port] == 0)
+                break;
+
+            // boarding
+            if (vehSize <= currCap && shared->waitVeh[boardingVeh][port]) {
+                currCap -= vehSize;
+                vehBoarded++;
+                // saveLine("debug | attemtping to load type%d, assumed loaded: %d, storage %d/%d", boardingVeh, vehBoarded, inf->maxCap - currCap, inf->maxCap);
+
+                sem_wait(&shared->mutex);
+                shared->waitVeh[boardingVeh][port]--;
+                sem_post(&shared->mutex);
+
+                sem_post(&shared->semVeh[boardingVeh][port]);
+            }
+
+            // switch to other vehicle type if possible
+            if (currCap >= 3)
+                boardingVeh = (boardingVeh == CAR) ? TRUCK : CAR;
+            else {
+                boardingVeh = CAR;
+                // truck won't fit, no cars waiting
+                if (shared->waitVeh[CAR][port] == 0) {
+                    break;
+                }
+            }
+                
+        }
+
+        // saveLine("debug | waiting for %d", vehBoarded);
+        // letting vehicles board safely
+        for (int i = 0; i < vehBoarded; i++) {
+            sem_wait(&shared->boardingDone);
+        }
 
         saveLine("P: leaving %d", port);
-
-
         port = (port + 1) % 2;
     }
 
     usleep(rand() % (inf->ferryTime + 1));
-    saveLine("P: finished");
+    saveLine("P: finish         ");
 
     //freeing copied memory
     cleanupExtras();
@@ -124,7 +173,7 @@ void vehicle(int vehNum, enum vehType type) {
     // starting and arriving to a picked port
     saveLine("%c %d: started", vehName, vehNum);
     usleep(rand() % (inf->vehTime + 1));
-    saveLine("%c %d: arrived to %d", vehName, vehNum);
+    saveLine("%c %d: arrived to %d", vehName, vehNum, port);
 
     // arrived to port, waiting
     sem_wait(&shared->mutex);
@@ -135,23 +184,20 @@ void vehicle(int vehNum, enum vehType type) {
 
     //boarding, leaving the port
     sem_wait(&shared->mutex);
-    shared->waitVeh[type][port]--;
+    //shared->waitVeh[type][port]--;    ferry does?
     shared->vehLeft--;
     sem_post(&shared->mutex);
 
     saveLine("%c %d: boarding", vehName, vehNum);
+    sem_post(&shared->boardingDone);
+
+
 
     sem_wait(&shared->semFerry);                // ferry post
 
     saveLine("%c %d: leaving in %d", vehName, vehNum, (port + 1) % 2);
 
     // freeing copied memory
-    cleanupExtras();
-    exit(0);
-}
-
-void truck() {
-    printf("truck imploded catastrophically\n");
     cleanupExtras();
     exit(0);
 }
@@ -175,8 +221,6 @@ int main(int argc, char* argv[]) {
     inf->maxCap = toInt(argv[3], 3, 100, "ferry capacity");
     inf->vehTime = toInt(argv[4], 0, 10000, "car travel time");
     inf->ferryTime = toInt(argv[5], 0, 1000, "ferry travel time");
-    shared->vehLeft = trucks + cars;
-    shared->currCap = inf->maxCap;
 
     // checking for errors
     if (trucks == -1 || cars == -1 || inf->maxCap == -1 || inf->vehTime == -1 || inf->ferryTime == -1) {
@@ -187,6 +231,7 @@ int main(int argc, char* argv[]) {
 
     // semaphore setup
     sharedSetup();
+    shared->vehLeft = trucks + cars;
 
     // file opening
     filePtr = fopen("proj2.out", "w");

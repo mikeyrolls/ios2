@@ -15,17 +15,17 @@
 #include <time.h>
 #include <stdarg.h>
 #include <sys/wait.h>
+#include <stdbool.h>
 
 typedef struct {
     sem_t mutex;
     sem_t write;
     sem_t semVeh[2][2];   // car/truck   port0/1
     sem_t semFerry;
-    int currCap;
+    sem_t boardingDone;
     int actionVal;
     int waitVeh[2][2];
     int vehLeft;
-    int vehBoarded;
 } sharedData;
 
 typedef struct {
@@ -59,8 +59,6 @@ void sharedSetup();
 void ferry();
 
 void vehicle(int vehNum, enum vehType type);
-
-void truck();
 
 /**
  * @brief main body of the program
