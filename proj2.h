@@ -30,6 +30,8 @@
  * 
  * - `boardingDone`: semaphore for signalling successful boarding of all currently transferrable vehicles
  * 
+ * - `boardingDone`: semaphore for signalling successful unloading of all previously loaded vehicles
+ * 
  * - `actionVal`: number of current action, used for writes
  * 
  * - `waitVeh`: amount of waiting vehicles (car/truck) at each port (0/1)
@@ -42,6 +44,7 @@ typedef struct {
     sem_t semVeh[2][2];   // car/truck   port0/1
     sem_t semFerry;
     sem_t boardingDone;
+    sem_t unloadingDone;
     int actionVal;
     int waitVeh[2][2];
     int vehLeft;

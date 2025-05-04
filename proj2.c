@@ -40,6 +40,7 @@ void sharedSetup() {
     sem_init(&shared->write, 1, 1);
     sem_init(&shared->semFerry, 1, 0);
     sem_init(&shared->boardingDone, 1, 0);
+    sem_init(&shared->unloadingDone, 1, 0);
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
             sem_init(&shared->semVeh[i][j], 1, 0);
@@ -59,6 +60,7 @@ void sharedDelete() {
     sem_destroy(&shared->write);
     sem_destroy(&shared->semFerry);
     sem_destroy(&shared->boardingDone);
+    sem_destroy(&shared->unloadingDone);
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
             sem_destroy(&shared->semVeh[i][j]);
@@ -103,6 +105,10 @@ void ferry() {
         // let cars out
         for(int i = 0; i < vehBoarded; i++) {
             sem_post(&shared->semFerry);
+        }
+        // wait for cars to leave
+        for (int i = 0; i < vehBoarded; i++) {
+            sem_wait(&shared->unloadingDone);
         }
         vehBoarded = 0;
         currCap = inf->maxCap;
@@ -190,6 +196,9 @@ void vehicle(int vehNum, enum vehType type) {
     shared->vehLeft--;
     sem_post(&shared->mutex);
 
+    // signal ferry it can leave
+    sem_post(&shared->unloadingDone);
+
     // freeing copied memory
     cleanupExtras();
     exit(0);
@@ -240,21 +249,39 @@ int main(int argc, char* argv[]) {
     setbuf(filePtr, NULL);
     setbuf(stderr, NULL);
 
+    bool forkError = false;
+
     // creating children
     pid_t pid = fork();
     if (pid == 0) {
         ferry();
-    }
-    for (int o = 0; o < cars; o++) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            vehicle(o+1, CAR);
+    } else if (pid < 0) {
+        forkError = true;
+    } else {
+        // car and truck processes only get created if ferry did not fail
+        for (int o = 0; o < cars; o++) {
+            pid_t pid = fork();
+            if (pid == 0) {
+                vehicle(o+1, CAR);
+            } else if (pid < 0) {
+                forkError = true;
+                // adjusting vehicle count for missing vehicle
+                sem_wait(&shared->mutex);
+                shared->vehLeft--;
+                sem_post(&shared->mutex);
+            }
         }
-    }
-    for (int n = 0; n < trucks; n++) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            vehicle(n+1, TRUCK);
+        for (int n = 0; n < trucks; n++) {
+            pid_t pid = fork();
+            if (pid == 0) {
+                vehicle(n+1, TRUCK);
+            } else if (pid < 0) {
+                forkError = true;
+                // adjusting vehicle count for missing vehicle
+                sem_wait(&shared->mutex);
+                shared->vehLeft--;
+                sem_post(&shared->mutex);
+            }
         }
     }
 
@@ -264,6 +291,11 @@ int main(int argc, char* argv[]) {
     // allocated files and shared mem freeing
     cleanupExtras();
     sharedDelete();
+
+    if(forkError) {
+        fprintf(stderr, "Forking error\n");
+        return 1;
+    }
 
     return 0;
 }
